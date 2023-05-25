@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "feature-store"
+version = "0.1.0"
+description = ""
+authors = ["ray <wuhaohsiang1992@gmail.com>"]
+readme = "README.md"
+packages = [{include = "feature_store"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "^0.95.2"
+psycopg2-binary = "^2.9.6"
+redis = "^4.5.5"
+uvicorn = "^0.22.0"
+rich = "^13.3.5"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
