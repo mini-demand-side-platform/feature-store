@@ -5,6 +5,7 @@ Featurestore
 Feature
 Description
 Function name
+offline table name
 
 ## usage
 

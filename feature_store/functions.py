@@ -5,12 +5,20 @@ from abc import ABC, abstractmethod
 
 class FeatureStoreFunction(ABC):
     @abstractmethod
-    def online_feature_function(self):
-        raise NotImplementedError
+    def set_online_feature_function(self):
+        pass
 
     @abstractmethod
-    def offline_feature_function(self):
-        raise NotImplementedError
+    def set_offline_feature_function(self):
+        pass
+
+    @abstractmethod
+    def get_online_feature(self):
+        pass
+
+    @abstractmethod
+    def get_offline_feature(self):
+        pass
 
 
 class SimpleMapping(FeatureStoreFunction):

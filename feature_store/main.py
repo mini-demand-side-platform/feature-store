@@ -23,7 +23,7 @@ def get_feature_store(feature_store_name: str):
     pass
 
 
-@app.post("/feature_store/{feature_store_name}")
+@app.post("/feature_store")
 def create_feature_store():
     pass
 
@@ -34,17 +34,12 @@ def delete_feature_store():
 
 
 @app.get("/feature_store/{feature_store_name}/feature")
-def list_feature():
+def list_feature(feature_store_name: str):
     pass
 
 
 @app.get("/feature_store/{feature_store_name}/feature/{feature_name}")
-def get_feature():
-    pass
-
-
-@app.get("/feature_store/{feature_store_name}/feature/{feature_name}")
-def get_feature():
+def get_online_feature(feature_store_name: str, feature_name: str):
     pass
 
 

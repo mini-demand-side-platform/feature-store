@@ -1,17 +1,44 @@
 from abc import ABC, abstractmethod
 
 
-class Database(ABC):
+class OnlineDatabase(ABC):
     @abstractmethod
-    def set_function(self):
-        raise NotImplementedError
-
-
-class Postgresql(Database):
     def set_function(self):
         pass
 
+    @abstractmethod
+    def get_feature(self):
+        pass
 
-class Redis(Database):
+
+class OfflineDatabase(ABC):
+    @abstractmethod
     def set_function(self):
+        pass
+
+    @abstractmethod
+    def write(self):
+        pass
+
+    @abstractmethod
+    def read(self):
+        pass
+
+
+class Postgresql(OfflineDatabase):
+    def set_function(self):
+        pass
+
+    def write(self):
+        pass
+
+    def read(self):
+        pass
+
+
+class Redis(OnlineDatabase):
+    def set_function(self):
+        pass
+
+    def get_feature(self):
         pass
