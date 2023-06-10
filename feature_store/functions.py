@@ -1,6 +1,7 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
+from typing import Any, Dict
+
+from .dbs import OfflineDatabase, OnlineDatabase
 
 
 class FeatureStoreFunction(ABC):
@@ -21,9 +22,13 @@ class FeatureStoreFunction(ABC):
         pass
 
 
-class SimpleMapping(FeatureStoreFunction):
-    def set_online_feature_function(self, Database):
+class Mapping(FeatureStoreFunction):
+    def set_online_feature_function(
+        self, online_database: OnlineDatabase, rules: Dict[str, Any]
+    ):
         pass
 
-    def set_offline_feature_function(self, Database):
-        return super().offline_feature_function()
+    def set_offline_feature_function(
+        self, offline_database: OfflineDatabase, rules: Dict[str, Any]
+    ):
+        offline_database.create_function()

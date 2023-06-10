@@ -1,6 +1,5 @@
 import os
-
-from pydantic import BaseModel
+from dataclasses import dataclass
 
 feature_mapping = {
     0: {"layout_style": "AB"},
@@ -16,18 +15,40 @@ feature_mapping = {
 }
 
 
-class HealthCheckOutput(BaseModel):
-    health: bool
+@dataclass
+class DBServerInfo:
+    host: str
+    port: str
+    database: str
+    username: str
+    password: str
 
 
-bidding_strategy = os.getenv("bidding_strategy", "cpc")
-
-get_ads_method = os.getenv("get_ads_method", "postgres")
-
-postgres_server_info = {
-    "host": os.getenv("postgres_host", "localhost"),
-    "dbname": os.getenv("postgres_dbname", "dsp_rtb"),
-    "user": os.getenv("postgres_user", "dsp"),
-    "password": os.getenv("postgres_password", "dsp"),
-    "port": os.getenv("postgres_port", "5433"),
-}
+oltp_server_info = DBServerInfo(
+    host=os.getenv("oltp_host", "localhost"),
+    port=os.getenv("oltp_port", "5432"),
+    database=os.getenv("oltp_database", "oltp"),
+    username=os.getenv("oltp_username", "dsp"),
+    password=os.getenv("oltp_password", "dsppassword"),
+)
+olap_server_info = DBServerInfo(
+    host=os.getenv("olap_host", "localhost"),
+    port=os.getenv("olap_port", "5432"),
+    database=os.getenv("olap_database", "olap"),
+    username=os.getenv("olap_username", "dsp"),
+    password=os.getenv("postgres_password", "dsppassword"),
+)
+feature_store_server_info = DBServerInfo(
+    host=os.getenv("feature_store_host", "localhost"),
+    port=os.getenv("feature_store_port", "5432"),
+    database=os.getenv("feature_store_database", "feature_store"),
+    username=os.getenv("feature_store_username", "dsp"),
+    password=os.getenv("feature_store_password", "dsppassword"),
+)
+cache_server_info = DBServerInfo(
+    host=os.getenv("cache_host", "localhost"),
+    port=os.getenv("cache_port", "6379"),
+    database=os.getenv("cache_database", "cache"),
+    username=os.getenv("cache_username", "dsp"),
+    password=os.getenv("cache_password", "dsppassword"),
+)
