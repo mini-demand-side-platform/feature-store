@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import psycopg2
+import redis
 
 from .config import DBServerInfo
 
@@ -16,21 +17,29 @@ class DatabaseValueType(Enum):
 
 class OnlineDatabase(ABC):
     @abstractmethod
-    def get_online_feature(self):
+    def read(self):
         pass
 
     @abstractmethod
-    def create_function(self):
+    def check_exist(self):
         pass
 
     @abstractmethod
-    def delete_function(self):
+    def write(self):
+        pass
+
+    @abstractmethod
+    def delete(self):
+        pass
+
+    @abstractmethod
+    def scan(self):
         pass
 
 
 class OfflineDatabase(ABC):
     @abstractmethod
-    def create_offline_table(self):
+    def create_table(self):
         pass
 
     @abstractmethod
@@ -50,7 +59,7 @@ class OfflineDatabase(ABC):
         pass
 
     @abstractmethod
-    def create_function(self):
+    def create_string_mapping_function(self):
         pass
 
     @abstractmethod
@@ -74,7 +83,7 @@ class Postgresql(OfflineDatabase):
             DatabaseValueType.STR: "TEXT",
         }
 
-    def create_offline_table(self, table_name: str) -> None:
+    def create_table(self, table_name: str) -> None:
         cur = self.conn.cursor()
 
         cur.execute(
@@ -88,7 +97,13 @@ class Postgresql(OfflineDatabase):
         )
         cur.close()
 
-    def write(self, table_name: str, data: Dict[str, List[Any]]) -> None:
+    def write(
+        self,
+        table_name: str,
+        data: Dict[str, List[Any]],
+        returning_columns: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, List[str]]]:
+        res = None
         cur = self.conn.cursor()
         formated_data = []
         ks = list(data.keys())
@@ -106,25 +121,44 @@ class Postgresql(OfflineDatabase):
             formated_data.append(tuple(row))
         insert_query = """
             INSERT INTO {} ({})
-            VALUES ({});
+            VALUES ({})
             """.format(
-            table_name, ",".join(ks), ",".join(["%s"] * len(ks))
+            table_name,
+            ",".join(ks),
+            ",".join(
+                ["%s"] * len(ks),
+            ),
         )
+        if returning_columns is not None:
+            res = {}
+            for returning_column in returning_columns:
+                res[returning_column] = []
+            insert_query += " RETURNING {};".format(",".join(returning_columns))
 
-        cur.execute(insert_query, formated_data)
+            returning = cur.fetchall()
+            for row in returning:
+                for i in range(len(returning_columns)):
+                    res[returning_columns[i]].append(row[i])
+        else:
+            insert_query += ";"
+            cur.execute(insert_query, formated_data)
+
         # Commit the changes to the database
         self.conn.commit()
         cur.close()
+        return res
 
     def read(
-        self, table: str, columns: List[str], condiction: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, table_name: str, columns: List[str], condiction: Optional[str] = None
+    ) -> Dict[str, List[Any]]:
         cur = self.conn.cursor()
         if condiction is None:
-            cur.execute("SELECT {} FROM {};".format(columns.join(","), table))
+            cur.execute("SELECT {} FROM {};".format(columns.join(","), table_name))
         else:
             cur.execute(
-                "SELECT {} FROM {} {};".format(",".join(columns), table, condiction)
+                "SELECT {} FROM {} {};".format(
+                    ",".join(columns), table_name, condiction
+                )
             )
         res = {}
         rows = cur.fetchall()
@@ -159,61 +193,116 @@ class Postgresql(OfflineDatabase):
                 table_name, column_name, target_value
             )
         )
-
-        # Commit the changes to the database
         self.conn.commit()
         cur.close()
 
-    def create_mapping_function(
+    def create_string_mapping_function(
         self,
         function_name: str,
-        input_value_type: DatabaseValueType,
-        output_value_type: DatabaseValueType,
-        mapping_rules: Dict["str", Any],
+        mapping_rules: Dict[str, float],
     ) -> None:
         cur = self.conn.cursor()
-        function_query = ""
+        mapping_function = ""
         for k, v in mapping_rules.items():
             if k != "default":
-                if len(function_query) == 0:
-                    function_query += "IF {} THEN \n\tresult := {} \n".format(k, v)
+                if len(mapping_function) == 0:
+                    mapping_function += "IF x={} THEN \n\tresult := {} \n".format(k, v)
                 else:
-                    function_query += "ELSIF {} THEN \n\tresult := {} \n".format(k, v)
-        function_query += "ELSE\n\tresult := {}\nEND IF;".format(
+                    mapping_function += "ELSIF x={} THEN \n\tresult := {} \n".format(
+                        k, v
+                    )
+        mapping_function += "ELSE\n\tresult := {}\nEND IF;\nRETURN result;".format(
             mapping_rules["default"]
         )
-        cur.execute(
-            """
-            CREATE FUNCTION {}(input {})
+        function_query = """
+            CREATE FUNCTION {}(x {})
             RETURNS {} AS $$
             DECLARE
                 result {};
             BEGIN
-                IF input > 0 THEN
-                    result := 'Positive';
-                ELSE
-                    result := 'Negative';
-                END IF;
+            {}
+            END;
+            $$ LANGUAGE plpgsql;
+            """.format(
+            function_name,
+            self.database_value_type_mapping[DatabaseValueType.STR],
+            self.database_value_type_mapping[DatabaseValueType.FLOAT],
+            self.database_value_type_mapping[DatabaseValueType.FLOAT],
+            mapping_function,
+        )
 
-                -- Return the result
+        cur.execute(function_query)
+        self.conn.commit()
+        cur.close()
+
+    def create_scale_function(
+        self,
+        function_name: str,
+        math_operation: str,
+    ) -> None:
+        cur = self.conn.cursor()
+
+        function_query = """
+            CREATE FUNCTION {}(x {})
+            RETURNS {} AS $$
+            DECLARE
+                result {};
+            BEGIN
+                result := {}
                 RETURN result;
             END;
             $$ LANGUAGE plpgsql;
             """.format(
-                function_name,
-                self.database_value_type_mapping[input_value_type],
-                self.database_value_type_mapping[output_value_type],
-                self.database_value_type_mapping[output_value_type],
+            function_name,
+            self.database_value_type_mapping[DatabaseValueType.FLOAT],
+            self.database_value_type_mapping[DatabaseValueType.FLOAT],
+            self.database_value_type_mapping[DatabaseValueType.FLOAT],
+            math_operation,
+        )
+
+        cur.execute(function_query)
+        self.conn.commit()
+        cur.close()
+
+    def delete_function(self, function_name: str) -> None:
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            DELETE FUNCTION IF EXISTS {};
+            """.format(
+                function_name
             )
         )
+        self.conn.commit()
+        cur.close()
 
 
 class Redis(OnlineDatabase):
     def __init__(self, db_server_info: DBServerInfo) -> None:
-        pass
+        self.conn = redis.Redis(
+            host=db_server_info.host,
+            port=db_server_info.port,
+        )
 
-    def set_function(self):
-        pass
+    def read(
+        self,
+        key: str,
+    ) -> str:
+        return self.conn.get(key).decode()
 
-    def get_feature(self):
-        pass
+    def check_exist(self, key) -> bool:
+        return self.conn.exists(key)
+
+    def write(self, key: str, value: str) -> None:
+        self.conn.set(key, value)
+
+    def delete(self, key) -> None:
+        self.conn.delete(key)
+
+    def scan(self, pattern) -> List[str]:
+        keys = []
+        cursor = "0"
+        while cursor != 0:
+            cursor, matched_key = self.conn.scan(cursor=cursor, match=pattern)
+            keys.append(matched_key)
+        return keys

@@ -38,13 +38,7 @@ olap_server_info = DBServerInfo(
     username=os.getenv("olap_username", "dsp"),
     password=os.getenv("postgres_password", "dsppassword"),
 )
-feature_store_server_info = DBServerInfo(
-    host=os.getenv("feature_store_host", "localhost"),
-    port=os.getenv("feature_store_port", "5432"),
-    database=os.getenv("feature_store_database", "feature_store"),
-    username=os.getenv("feature_store_username", "dsp"),
-    password=os.getenv("feature_store_password", "dsppassword"),
-)
+
 cache_server_info = DBServerInfo(
     host=os.getenv("cache_host", "localhost"),
     port=os.getenv("cache_port", "6379"),

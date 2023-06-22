@@ -1,11 +1,21 @@
 # feature-store
 
 ## structure
-Featurestore
-Feature
-Description
-Function name
-offline table name
+CREATE TABLE feature_store (
+    feature_store_id SERIAL PRIMARY KEY,
+    feature_store_name text,
+    description text,
+    offline_table_name text
+);
+CREATE TABLE feature (
+    feature_store_id INTEGER REFERENCES feature_store 
+    feature_id SERIAL PRIMARY KEY,
+    feature_name text,
+    feature_function_type text,
+    description text,
+    function_name text
+);
+
 
 ## usage
 

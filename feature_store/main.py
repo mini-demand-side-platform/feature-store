@@ -1,20 +1,25 @@
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
-from fastapi import FastAPI
-from output_templates import (
+from data_templates import (
     GetFeatureStoreOutput,
     ListFeatureStoreOutput,
+    OnlineFeaturesInputs,
+    OnlineFeaturesOutputs,
+    CreateStringMappingFeatureInput,
 )
+from fastapi import FastAPI
 
-from .config import feature_store_server_info
+from .config import cache_server_info, olap_server_info
 from .dbs import Postgresql
-from .functions import Mapping
+from .feature_store import FeatureStore, StringMapping, Scale
 from .logger import get_logger
 
 log = get_logger(logger_name="main")
 
 app = FastAPI()
-feature_store_db = Postgresql(feature_store_server_info)
+offline_database = Postgresql(olap_server_info)
+online_database = Postgresql(cache_server_info)
+fs = FeatureStore()
 
 
 @app.get("/health")
@@ -24,7 +29,7 @@ def health_check() -> bool:
 
 @app.get("/feature_store", response_model=ListFeatureStoreOutput)
 def list_feature_store():
-    return feature_store_db.read(
+    return offline_database.read(
         table="feature_store",
         columns=[
             "feature_store_id",
@@ -35,7 +40,7 @@ def list_feature_store():
 
 @app.get("/feature_store/{feature_store_id}", response_model=GetFeatureStoreOutput)
 def get_feature_store(feature_store_id: str):
-    return feature_store_db.read(
+    return offline_database.read(
         table="feature_store",
         columns=[
             "feature_store_id",
@@ -51,7 +56,7 @@ def get_feature_store(feature_store_id: str):
 async def create_feature_store(
     feature_store_name: str, offline_table_name: str, description: Optional[str] = None
 ) -> bool:
-    feature_store_db.write(
+    offline_database.write(
         table_name="feature_store",
         data={
             "feature_store_name": [feature_store_name],
@@ -59,66 +64,98 @@ async def create_feature_store(
             "offline_table_name": [offline_table_name],
         },
     )
-    feature_store_db.create_offline_table(table_name=offline_table_name)
 
     return True
 
 
 @app.delete("/feature_store")
 async def delete_feature_store(feature_store_id: str) -> bool:
-    offline_table_name = feature_store_db.read(
-        "feature_store",
+    offline_table_name = offline_database.read(
+        table_name="feature_store",
         columns=["offline_table_name"],
         condiction="WHERE feature_store_id = {}".format(feature_store_id),
     )["offline_table_name"][0]
 
-    feature_store_db.delete_table(table_name=offline_table_name)
-    feature_store_db.delete_row(
+    offline_database.delete_table(table_name=offline_table_name)
+    feature_ids = offline_database.read(
+        table_name="feature",
+        columns=["feature_id"],
+        condiction="WHERE feature_store_id = {}".format(feature_store_id),
+    )["feature_id"]
+    offline_database.delete_row(
         table_name="feature_store",
         column_name="feature_store_id",
         target_value=feature_store_id,
     )
+
+    for feature_id in feature_ids:
+        fs.delete_offline_feature(
+            offline_database=offline_database, feature_id=feature_id
+        )
+        fs.delete_online_feature(online_database=online_database, feature_id=feature_id)
+
     return True
 
 
 @app.get("/feature_store/{feature_store_id}/feature")
 def list_feature(feature_store_id: str):
-    return feature_store_db.read(
+    return offline_database.read(
         table="feature",
         columns=["feature_id", "feature_name", "description", "function_name"],
         condiction="WHERE feature_store_id = {}".format(feature_store_id),
     )
 
 
-@app.get("/feature_store/{feature_store_id}/feature/{feature_id}")
-def get_online_feature(feature_store_id: str, feature_name: str):
-    pass
+@app.post("/online_features")
+def get_online_feature(
+    online_features_inputs: OnlineFeaturesInputs,
+) -> OnlineFeaturesOutputs:
+    return fs.get_online_feature(
+        online_database=online_database,
+        feature_store_function_types=online_features_inputs.feature_store_function_types,
+        feature_ids=online_features_inputs.feature_ids,
+        inputs=online_features_inputs.inputs,
+    )
 
 
-@app.post("/feature_store/{feature_store_id}/feature/mapping")
-async def create_mapping_feature(
+@app.post("/feature_store/{feature_store_id}/feature/string_mapping")
+async def create_string_mapping_feature(
     feature_store_id: str,
-    feature_name: str,
-    function_name: str,
-    rules: Dict[str, Any],
-    description: Optional[str] = None,
-):
-    feature_store_db.write(
+    create_string_mapping_feature_input=CreateStringMappingFeatureInput,
+) -> bool:
+    feature_id = offline_database.write(
         table_name="feature",
         data={
             "feature_store_id": [feature_store_id],
-            "feature_name": [feature_name],
-            "description": [description],
-            "function_name": [function_name],
+            "feature_name": [create_string_mapping_feature_input.feature_name],
+            "feature_function_type": ["string_mapping"],
+            "description": [create_string_mapping_feature_input.description],
+            "function_name": [create_string_mapping_feature_input.function_name],
         },
+        returning_columns=["feature_id"],
+    )["feature_id"][0]
+
+    sm = StringMapping()
+    sm.set_online_feature_function(
+        online_database=online_database,
+        feature_id=feature_id,
+        mapping_rules=create_string_mapping_feature_input.mapping_rules,
     )
-    m = Mapping()
-    m.set_offline_feature_function(offline_database=feature_store_db, rules=rules)
+    sm.set_offline_feature_function(
+        offline_database=offline_database,
+        function_name=create_string_mapping_feature_input.feature_name,
+        mapping_rules=create_string_mapping_feature_input.mapping_rules,
+    )
+    return True
 
 
 @app.post("/feature_store/{feature_store_id}/feature/scale")
 async def create_scale_feature():
-    pass
+    offline_database.write()
+    sc = Scale()
+    sc.set_online_feature_function()
+    sc.set_offline_feature_function()
+    return True
 
 
 @app.delete("/feature_store/{feature_store_id}/feature/{feature_id}")
