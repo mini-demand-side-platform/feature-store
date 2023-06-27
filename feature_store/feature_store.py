@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, List, Union
 
-from .dbs import OfflineDatabase, OnlineDatabase
+from .dbs import DatabaseValueType, OfflineDatabase, OnlineDatabase
 from .logger import get_logger
 
 log = get_logger("feature_store")
@@ -39,7 +39,9 @@ class FeatureStore:
                     feature_ids[i]
                     + "-"
                     + inputs[i]
-                    + "-{}".format(FeatureStoreFunctionType.STRING_MAPPING.value)
+                    + "-{postfix}".format(
+                        postfix=FeatureStoreFunctionType.STRING_MAPPING.value
+                    )
                 )
                 if online_database.check_exist(key):
                     res.append(float(online_database.read(key)))
@@ -48,14 +50,18 @@ class FeatureStore:
                         feature_ids[i]
                         + "-"
                         + "default"
-                        + "-{}".format(FeatureStoreFunctionType.STRING_MAPPING.value)
+                        + "-{postfix}".format(
+                            postfix=FeatureStoreFunctionType.STRING_MAPPING.value
+                        )
                     )
                     if online_database.check_exist(default_key):
                         res.append(float(online_database.read(default_key)))
                     else:
                         res.append(None)
                         log.warning(
-                            "No default key: {} for string_mapping".format(default_key)
+                            "No default key: {default_key} for string_mapping".format(
+                                default_key=default_key
+                            )
                         )
             elif feature_store_function_types[i] == FeatureStoreFunctionType.SCALE:
                 if not isinstance(inputs[i], str):
@@ -68,18 +74,18 @@ class FeatureStore:
                     feature_ids[i]
                     + "-"
                     + inputs[i]
-                    + "-{}".format(FeatureStoreFunctionType.SCALE.value)
+                    + "-{postfix}".format(postfix=FeatureStoreFunctionType.SCALE.value)
                 )
                 if online_database.check_exist(key):
                     res.append(eval(online_database.read(key).format(inputs[i])))
                 else:
                     res.append(None)
-                    log.warning("Invalid key: {} for scale".format(key))
+                    log.warning("Invalid key: {key} for scale".format(key=key))
             else:
                 res.append(None)
                 log.warning(
-                    "Invalid FeatureStoreFunctionType: {}".format(
-                        feature_store_function_types[i]
+                    "Invalid FeatureStoreFunctionType: {function_type}".format(
+                        function_type=feature_store_function_types[i]
                     )
                 )
         return res
@@ -99,11 +105,66 @@ class FeatureStore:
         function_name = offline_database.read(
             table_name="feature",
             columns="function_name",
-            condiction="WHERE feature_id = {}".format(feature_id),
+            condiction="WHERE feature_id = {feature_id}".format(feature_id=feature_id),
         )["function_name"][0]
         offline_database.delete_function(function_name=function_name)
         offline_database.delete_row(
             table_name="feature", column_name="feature_id", target_value=feature_id
+        )
+
+    def generate_offline_table(
+        self, offline_database: OfflineDatabase, feature_store_id: str
+    ):
+        offline_table_name = offline_database.read(
+            table_name="feature_store",
+            columns=["offline_table_name"],
+            condiction="WHERE feature_store_id = {feature_store_id}".format(
+                feature_store_id=feature_store_id
+            ),
+        )["offline_table_name"][0]
+        feature_info = offline_database.read(
+            table_name="feature",
+            columns=[
+                "feature_name",
+                "function_name",
+                "source_table_name",
+                "source_column_name",
+            ],
+            condiction="where feature_store_id = {feature_store_id}".format(
+                feature_store_id=feature_store_id
+            ),
+        )
+        if len(set(feature_info["source_table_name"])) > 1:
+            raise ValueError(
+                (
+                    "Only support source table from same place "
+                    "but having {source_table_names}"
+                ).format(
+                    source_table_names=",".join(
+                        list(set(feature_info["source_table_name"]))
+                    )
+                )
+            )
+        offline_database.delete_table(table_name=offline_table_name)
+        offline_database.create_table(
+            table_name=offline_table_name,
+            column_names=feature_info["feature_name"],
+            column_types=[DatabaseValueType.FLOAT] * len(feature_info["feature_names"]),
+        )
+        apply_function_column_names = []
+        for function_name, column_name in zip(
+            feature_info["function_name"], feature_info["source_column_name"]
+        ):
+            apply_function_column_names.append(
+                "{function_name}({column_name})".format(
+                    function_name=function_name, column_name=column_name
+                )
+            )
+        offline_database.write_from_table(
+            target_table_name=offline_table_name,
+            target_column_names=feature_info["feature_name"],
+            source_table_name=feature_info["source_table_name"][0],
+            source_column_names=apply_function_column_names,
         )
 
 
@@ -129,7 +190,9 @@ class StringMapping(FeatureStoreFunction):
                 feature_id
                 + "-"
                 + k
-                + "-{}".format(FeatureStoreFunctionType.STRING_MAPPING.value),
+                + "-{postfix}".format(
+                    postfix=FeatureStoreFunctionType.STRING_MAPPING.value
+                ),
                 str(v),
             )
 
@@ -152,7 +215,8 @@ class Scale(FeatureStoreFunction):
         math_operation: str,
     ) -> None:
         online_database.write(
-            feature_id + "-{}".format(FeatureStoreFunctionType.SCALE.value),
+            feature_id
+            + "-{postfix}".format(postfix=FeatureStoreFunctionType.SCALE.value),
             math_operation,
         )
 

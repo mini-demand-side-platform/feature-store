@@ -66,6 +66,10 @@ class OfflineDatabase(ABC):
     def delete_function(self):
         pass
 
+    @abstractmethod
+    def write_from_table(self):
+        pass
+
 
 class Postgresql(OfflineDatabase):
     def __init__(self, db_server_info: DBServerInfo) -> None:
@@ -79,20 +83,33 @@ class Postgresql(OfflineDatabase):
         self.database_value_type_mapping = {
             DatabaseValueType.BOOL: "boolean",
             DatabaseValueType.INTEGER: "integer",
-            DatabaseValueType.FLOAT: "double precision",
-            DatabaseValueType.STR: "TEXT",
+            DatabaseValueType.FLOAT: "real",
+            DatabaseValueType.STR: "varchar(50)",
         }
 
-    def create_table(self, table_name: str) -> None:
+    def create_table(
+        self,
+        table_name: str,
+        column_names: List[str],
+        column_types: List[DatabaseValueType],
+    ) -> None:
+        assert len(column_names) == len(column_types)
         cur = self.conn.cursor()
-
+        columns = []
+        for i in range(len(column_names)):
+            columns.append(
+                column_names[i]
+                + " "
+                + self.database_value_type_mapping[column_types[i]]
+            )
         cur.execute(
             """
-            CREATE TABLE {} (
+            CREATE TABLE {table_name} (
                 row_id SERIAL PRIMARY KEY,
+                {columns}
             );
             """.format(
-                table_name
+                table_name=table_name, columns=",\n".join(columns)
             )
         )
         cur.close()
@@ -120,12 +137,12 @@ class Postgresql(OfflineDatabase):
                 row.append(data[k][i])
             formated_data.append(tuple(row))
         insert_query = """
-            INSERT INTO {} ({})
-            VALUES ({})
+            INSERT INTO {table_name} ({column_names})
+            VALUES ({values})
             """.format(
-            table_name,
-            ",".join(ks),
-            ",".join(
+            table_name=table_name,
+            column_names=",".join(ks),
+            values=",".join(
                 ["%s"] * len(ks),
             ),
         )
@@ -133,7 +150,9 @@ class Postgresql(OfflineDatabase):
             res = {}
             for returning_column in returning_columns:
                 res[returning_column] = []
-            insert_query += " RETURNING {};".format(",".join(returning_columns))
+            insert_query += " RETURNING {returning_columns};".format(
+                returning_columns=",".join(returning_columns)
+            )
 
             returning = cur.fetchall()
             for row in returning:
@@ -149,24 +168,30 @@ class Postgresql(OfflineDatabase):
         return res
 
     def read(
-        self, table_name: str, columns: List[str], condiction: Optional[str] = None
+        self, table_name: str, column_names: List[str], condiction: Optional[str] = None
     ) -> Dict[str, List[Any]]:
         cur = self.conn.cursor()
         if condiction is None:
-            cur.execute("SELECT {} FROM {};".format(columns.join(","), table_name))
+            cur.execute(
+                "SELECT {column_names} FROM {table_name};".format(
+                    column_names=column_names.join(","), table_name=table_name
+                )
+            )
         else:
             cur.execute(
-                "SELECT {} FROM {} {};".format(
-                    ",".join(columns), table_name, condiction
+                "SELECT {column_names} FROM {table_name} {condiction};".format(
+                    column_names=",".join(column_names),
+                    table_name=table_name,
+                    condiction=condiction,
                 )
             )
         res = {}
         rows = cur.fetchall()
         for row in rows:
             for i in range(len(row)):
-                if columns[i] not in res:
-                    res[columns[i]] = []
-                res[columns[i]].append(row[i])
+                if column_names[i] not in res:
+                    res[column_names[i]] = []
+                res[column_names[i]].append(row[i])
         cur.close()
         return res
 
@@ -174,9 +199,9 @@ class Postgresql(OfflineDatabase):
         cur = self.conn.cursor()
         cur.execute(
             """
-            DROP TABLE IF EXISTS {};
+            DROP TABLE IF EXISTS {table_name};
             """.format(
-                table_name
+                table_name=table_name
             )
         )
 
@@ -188,9 +213,11 @@ class Postgresql(OfflineDatabase):
         cur = self.conn.cursor()
         cur.execute(
             """
-            DELETE FROM {} WHERE {}={};
+            DELETE FROM {table_name} WHERE {column_name}={target_value};
             """.format(
-                table_name, column_name, target_value
+                table_name=table_name,
+                column_name=column_name,
+                target_value=target_value,
             )
         )
         self.conn.commit()
@@ -206,29 +233,32 @@ class Postgresql(OfflineDatabase):
         for k, v in mapping_rules.items():
             if k != "default":
                 if len(mapping_function) == 0:
-                    mapping_function += "IF x={} THEN \n\tresult := {} \n".format(k, v)
+                    mapping_function += (
+                        "IF x={target_value} THEN \n\tresult := {return_value} \n"
+                    ).format(target_value=k, return_value=v)
                 else:
-                    mapping_function += "ELSIF x={} THEN \n\tresult := {} \n".format(
-                        k, v
-                    )
-        mapping_function += "ELSE\n\tresult := {}\nEND IF;\nRETURN result;".format(
-            mapping_rules["default"]
+                    mapping_function += (
+                        "ELSIF x={target_value} THEN \n\tresult := {return_value} \n"
+                    ).format(target_value=k, return_value=v)
+        mapping_function += (
+            "ELSE\n\tresult := {default_value}\nEND IF;\nRETURN result;".format(
+                default_value=mapping_rules["default"]
+            )
         )
         function_query = """
-            CREATE FUNCTION {}(x {})
-            RETURNS {} AS $$
+            CREATE FUNCTION {function_name}(x {input_type})
+            RETURNS {output_type} AS $$
             DECLARE
-                result {};
+                result {output_type};
             BEGIN
-            {}
+            {function_code}
             END;
             $$ LANGUAGE plpgsql;
             """.format(
-            function_name,
-            self.database_value_type_mapping[DatabaseValueType.STR],
-            self.database_value_type_mapping[DatabaseValueType.FLOAT],
-            self.database_value_type_mapping[DatabaseValueType.FLOAT],
-            mapping_function,
+            function_name=function_name,
+            input_type=self.database_value_type_mapping[DatabaseValueType.STR],
+            output_type=self.database_value_type_mapping[DatabaseValueType.FLOAT],
+            function_code=mapping_function,
         )
 
         cur.execute(function_query)
@@ -243,21 +273,20 @@ class Postgresql(OfflineDatabase):
         cur = self.conn.cursor()
 
         function_query = """
-            CREATE FUNCTION {}(x {})
-            RETURNS {} AS $$
+            CREATE FUNCTION {function_name}(x {input_type})
+            RETURNS {output_type} AS $$
             DECLARE
-                result {};
+                result {output_type};
             BEGIN
-                result := {}
+                result := {function_code}
                 RETURN result;
             END;
             $$ LANGUAGE plpgsql;
             """.format(
-            function_name,
-            self.database_value_type_mapping[DatabaseValueType.FLOAT],
-            self.database_value_type_mapping[DatabaseValueType.FLOAT],
-            self.database_value_type_mapping[DatabaseValueType.FLOAT],
-            math_operation,
+            function_name=function_name,
+            input_type=self.database_value_type_mapping[DatabaseValueType.FLOAT],
+            output_type=self.database_value_type_mapping[DatabaseValueType.FLOAT],
+            function_code=math_operation,
         )
 
         cur.execute(function_query)
@@ -268,9 +297,31 @@ class Postgresql(OfflineDatabase):
         cur = self.conn.cursor()
         cur.execute(
             """
-            DELETE FUNCTION IF EXISTS {};
+            DELETE FUNCTION IF EXISTS {function_name};
             """.format(
-                function_name
+                function_name=function_name
+            )
+        )
+        self.conn.commit()
+        cur.close()
+
+    def write_from_table(
+        self,
+        target_table_name: str,
+        target_column_names: List[str],
+        source_table_name: str,
+        source_column_names: List[str],
+    ):
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO {target_table_name} ({target_column_names}) 
+            SELECT {source_column_names} FROM {source_table_name}";
+            """.format(
+                target_table_name=target_table_name,
+                target_column_names=target_column_names,
+                source_column_names=source_column_names,
+                source_table_name=source_table_name,
             )
         )
         self.conn.commit()
