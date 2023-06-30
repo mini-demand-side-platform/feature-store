@@ -18,7 +18,8 @@ CREATE TABLE feature (
     function_name varchar(50)
 );
 
-
+INSERT INTO feature (feature_store_id,feature_name,source_table_name,source_column_name,feature_function_type,description,function_name)
+            VALUES ('a5b56fdf', 'layout_style_mapping', 'olap', 'layout_style', 'string_mapping', 'map layout_style AB to 1', 'layout_style_mapping') RETURNING feature_id;
 ## usage
 
 ### 0. list feature store

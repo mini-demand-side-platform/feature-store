@@ -73,13 +73,7 @@ class OfflineDatabase(ABC):
 
 class Postgresql(OfflineDatabase):
     def __init__(self, db_server_info: DBServerInfo) -> None:
-        self.conn = psycopg2.connect(
-            host=db_server_info.host,
-            port=db_server_info.port,
-            database=db_server_info.database,
-            user=db_server_info.username,
-            password=db_server_info.password,
-        )
+        self._db_server_info = db_server_info
         self.database_value_type_mapping = {
             DatabaseValueType.BOOL: "boolean",
             DatabaseValueType.INTEGER: "integer",
@@ -87,14 +81,36 @@ class Postgresql(OfflineDatabase):
             DatabaseValueType.STR: "varchar(50)",
         }
 
+    def _get_connection(self) -> psycopg2.extensions.connection:
+        """_summary_
+
+        Returns:
+            psycopg2.extensions.connection: _description_
+        """
+        return psycopg2.connect(
+            host=self._db_server_info.host,
+            port=self._db_server_info.port,
+            database=self._db_server_info.database,
+            user=self._db_server_info.username,
+            password=self._db_server_info.password,
+        )
+
     def create_table(
         self,
         table_name: str,
         column_names: List[str],
         column_types: List[DatabaseValueType],
     ) -> None:
+        """_summary_
+
+        Args:
+            table_name (str): _description_
+            column_names (List[str]): _description_
+            column_types (List[DatabaseValueType]): _description_
+        """
         assert len(column_names) == len(column_types)
-        cur = self.conn.cursor()
+        conn = self._get_connection()
+        cur = conn.cursor()
         columns = []
         for i in range(len(column_names)):
             columns.append(
@@ -109,10 +125,11 @@ class Postgresql(OfflineDatabase):
                 {columns}
             );
             """.format(
-                table_name=table_name, columns=",\n".join(columns)
+                table_name=table_name, columns=",".join(columns)
             )
         )
         cur.close()
+        conn.close()
 
     def write(
         self,
@@ -120,8 +137,19 @@ class Postgresql(OfflineDatabase):
         data: Dict[str, List[Any]],
         returning_columns: Optional[List[str]] = None,
     ) -> Optional[Dict[str, List[str]]]:
+        """_summary_
+
+        Args:
+            table_name (str): _description_
+            data (Dict[str, List[Any]]): _description_
+            returning_columns (Optional[List[str]], optional): _description_. Defaults to None.
+
+        Returns:
+            Optional[Dict[str, List[str]]]: _description_
+        """
         res = None
-        cur = self.conn.cursor()
+        conn = self._get_connection()
+        cur = conn.cursor()
         formated_data = []
         ks = list(data.keys())
         data_len = -1
@@ -138,8 +166,7 @@ class Postgresql(OfflineDatabase):
             formated_data.append(tuple(row))
         insert_query = """
             INSERT INTO {table_name} ({column_names})
-            VALUES ({values})
-            """.format(
+            VALUES ({values})""".format(
             table_name=table_name,
             column_names=",".join(ks),
             values=",".join(
@@ -148,33 +175,49 @@ class Postgresql(OfflineDatabase):
         )
         if returning_columns is not None:
             res = {}
+            returning = []
             for returning_column in returning_columns:
                 res[returning_column] = []
             insert_query += " RETURNING {returning_columns};".format(
                 returning_columns=",".join(returning_columns)
             )
 
-            returning = cur.fetchall()
+            for row in formated_data:
+                cur.execute(insert_query, row)
+                returning.append(cur.fetchone())
+
             for row in returning:
                 for i in range(len(returning_columns)):
                     res[returning_columns[i]].append(row[i])
         else:
             insert_query += ";"
-            cur.execute(insert_query, formated_data)
+            cur.executemany(insert_query, formated_data)
 
         # Commit the changes to the database
-        self.conn.commit()
+        conn.commit()
         cur.close()
+        conn.close()
         return res
 
     def read(
         self, table_name: str, column_names: List[str], condiction: Optional[str] = None
     ) -> Dict[str, List[Any]]:
-        cur = self.conn.cursor()
+        """_summary_
+
+        Args:
+            table_name (str): _description_
+            column_names (List[str]): _description_
+            condiction (Optional[str], optional): _description_. Defaults to None.
+
+        Returns:
+            Dict[str, List[Any]]: _description_
+        """
+        conn = self._get_connection()
+        cur = conn.cursor()
         if condiction is None:
             cur.execute(
                 "SELECT {column_names} FROM {table_name};".format(
-                    column_names=column_names.join(","), table_name=table_name
+                    column_names=",".join(column_names), table_name=table_name
                 )
             )
         else:
@@ -186,17 +229,19 @@ class Postgresql(OfflineDatabase):
                 )
             )
         res = {}
+        for column_name in column_names:
+            res[column_name] = []
         rows = cur.fetchall()
         for row in rows:
             for i in range(len(row)):
-                if column_names[i] not in res:
-                    res[column_names[i]] = []
                 res[column_names[i]].append(row[i])
         cur.close()
+        conn.close()
         return res
 
     def delete_table(self, table_name: str) -> None:
-        cur = self.conn.cursor()
+        conn = self._get_connection()
+        cur = conn.cursor()
         cur.execute(
             """
             DROP TABLE IF EXISTS {table_name};
@@ -206,42 +251,46 @@ class Postgresql(OfflineDatabase):
         )
 
         # Commit the changes to the database
-        self.conn.commit()
+        conn.commit()
         cur.close()
+        conn.close()
 
     def delete_row(self, table_name: str, column_name: str, target_value: str) -> None:
-        cur = self.conn.cursor()
+        conn = self._get_connection()
+        cur = conn.cursor()
         cur.execute(
             """
-            DELETE FROM {table_name} WHERE {column_name}={target_value};
+            DELETE FROM {table_name} WHERE {column_name}='{target_value}';
             """.format(
                 table_name=table_name,
                 column_name=column_name,
                 target_value=target_value,
             )
         )
-        self.conn.commit()
+        conn.commit()
         cur.close()
+        conn.close()
 
     def create_string_mapping_function(
         self,
         function_name: str,
         mapping_rules: Dict[str, float],
     ) -> None:
-        cur = self.conn.cursor()
+        conn = self._get_connection()
+        cur = conn.cursor()
         mapping_function = ""
         for k, v in mapping_rules.items():
             if k != "default":
                 if len(mapping_function) == 0:
                     mapping_function += (
-                        "IF x={target_value} THEN \n\tresult := {return_value} \n"
+                        "IF x={target_value} THEN \n\tresult := {return_value};\n"
                     ).format(target_value=k, return_value=v)
                 else:
                     mapping_function += (
-                        "ELSIF x={target_value} THEN \n\tresult := {return_value} \n"
+                        "ELSIF x={target_value} THEN \n\tresult := {return_value};\n"
                     ).format(target_value=k, return_value=v)
         mapping_function += (
-            "ELSE\n\tresult := {default_value}\nEND IF;\nRETURN result;".format(
+            "ELSE\n\tresult := {default_value};\nEND IF;\nRETURN result;".format(
                 default_value=mapping_rules["default"]
             )
         )
@@ -262,15 +311,17 @@ class Postgresql(OfflineDatabase):
         )
 
         cur.execute(function_query)
-        self.conn.commit()
+        conn.commit()
         cur.close()
+        conn.close()
 
     def create_scale_function(
         self,
         function_name: str,
         math_operation: str,
     ) -> None:
-        cur = self.conn.cursor()
+        conn = self._get_connection()
+        cur = conn.cursor()
 
         function_query = """
             CREATE FUNCTION {function_name}(x {input_type})
@@ -278,7 +329,7 @@ class Postgresql(OfflineDatabase):
             DECLARE
                 result {output_type};
             BEGIN
-                result := {function_code}
+                result := {function_code};
                 RETURN result;
             END;
             $$ LANGUAGE plpgsql;
@@ -288,22 +339,24 @@ class Postgresql(OfflineDatabase):
             output_type=self.database_value_type_mapping[DatabaseValueType.FLOAT],
             function_code=math_operation,
         )
-
         cur.execute(function_query)
-        self.conn.commit()
+        conn.commit()
         cur.close()
+        conn.close()
 
     def delete_function(self, function_name: str) -> None:
-        cur = self.conn.cursor()
+        conn = self._get_connection()
+        cur = conn.cursor()
         cur.execute(
             """
-            DELETE FUNCTION IF EXISTS {function_name};
+            DROP FUNCTION IF EXISTS {function_name};
             """.format(
                 function_name=function_name
             )
         )
-        self.conn.commit()
+        conn.commit()
         cur.close()
+        conn.close()
 
     def write_from_table(
         self,
@@ -312,7 +365,8 @@ class Postgresql(OfflineDatabase):
         source_table_name: str,
         source_column_names: List[str],
     ):
-        cur = self.conn.cursor()
+        conn = self._get_connection()
+        cur = conn.cursor()
         cur.execute(
             """
             INSERT INTO {target_table_name} ({target_column_names}) 
@@ -324,8 +378,9 @@ class Postgresql(OfflineDatabase):
                 source_table_name=source_table_name,
             )
         )
-        self.conn.commit()
+        conn.commit()
         cur.close()
+        conn.close()
 
 
 class Redis(OnlineDatabase):
@@ -333,6 +388,7 @@ class Redis(OnlineDatabase):
         self.conn = redis.Redis(
             host=db_server_info.host,
             port=db_server_info.port,
+            password=db_server_info.password,
         )
 
     def read(
@@ -347,10 +403,10 @@ class Redis(OnlineDatabase):
     def write(self, key: str, value: str) -> None:
         self.conn.set(key, value)
 
-    def delete(self, key) -> None:
+    def delete(self, key: str) -> None:
         self.conn.delete(key)
 
-    def scan(self, pattern) -> List[str]:
+    def scan(self, pattern: str) -> List[str]:
         keys = []
         cursor = "0"
         while cursor != 0:

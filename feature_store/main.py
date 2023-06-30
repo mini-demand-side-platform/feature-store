@@ -1,16 +1,17 @@
-from data_templates import (
+from typing import Any, List
+
+from fastapi import FastAPI
+
+from .config import cache_server_info, olap_server_info
+from .data_templates import (
     CreateFeatureStoreInput,
     CreateScaleFeatureInput,
     CreateStringMappingFeatureInput,
     GetFeatureStoreOutput,
     ListFeatureStoreOutput,
     OnlineFeaturesInputs,
-    OnlineFeaturesOutputs,
 )
-from fastapi import FastAPI
-
-from .config import cache_server_info, olap_server_info
-from .dbs import Postgresql
+from .dbs import Postgresql, Redis
 from .feature_store import FeatureStore, Scale, StringMapping
 from .logger import get_logger
 
@@ -18,7 +19,7 @@ log = get_logger(logger_name="main")
 
 app = FastAPI()
 offline_database = Postgresql(olap_server_info)
-online_database = Postgresql(cache_server_info)
+online_database = Redis(cache_server_info)
 fs = FeatureStore()
 
 
@@ -30,8 +31,8 @@ def health_check() -> bool:
 @app.get("/feature_store", response_model=ListFeatureStoreOutput)
 def list_feature_store():
     return offline_database.read(
-        table="feature_store",
-        columns=[
+        table_name="feature_store",
+        column_names=[
             "feature_store_id",
             "feature_store_name",
         ],
@@ -41,14 +42,14 @@ def list_feature_store():
 @app.get("/feature_store/{feature_store_id}", response_model=GetFeatureStoreOutput)
 def get_feature_store(feature_store_id: str):
     return offline_database.read(
-        table="feature_store",
-        columns=[
+        table_name="feature_store",
+        column_names=[
             "feature_store_id",
             "feature_store_name",
             "description",
             "offline_table_name",
         ],
-        condiction="WHERE feature_store_id = {feature_store_id}".format(
+        condiction="WHERE feature_store_id = '{feature_store_id}'".format(
             feature_store_id=feature_store_id
         ),
     )
@@ -70,12 +71,12 @@ async def create_feature_store(
     return True
 
 
-@app.delete("/feature_store")
+@app.delete("/feature_store/{feature_store_id}")
 async def delete_feature_store(feature_store_id: str) -> bool:
     offline_table_name = offline_database.read(
         table_name="feature_store",
-        columns=["offline_table_name"],
-        condiction="WHERE feature_store_id = {feature_store_id}".format(
+        column_names=["offline_table_name"],
+        condiction="WHERE feature_store_id = '{feature_store_id}'".format(
             feature_store_id=feature_store_id
         ),
     )["offline_table_name"][0]
@@ -83,32 +84,31 @@ async def delete_feature_store(feature_store_id: str) -> bool:
     offline_database.delete_table(table_name=offline_table_name)
     feature_ids = offline_database.read(
         table_name="feature",
-        columns=["feature_id"],
-        condiction="WHERE feature_store_id = {feature_store_id}".format(
+        column_names=["feature_id"],
+        condiction="WHERE feature_store_id = '{feature_store_id}'".format(
             feature_store_id=feature_store_id
         ),
     )["feature_id"]
-    offline_database.delete_row(
-        table_name="feature_store",
-        column_name="feature_store_id",
-        target_value=feature_store_id,
-    )
 
     for feature_id in feature_ids:
         fs.delete_offline_feature(
             offline_database=offline_database, feature_id=feature_id
         )
         fs.delete_online_feature(online_database=online_database, feature_id=feature_id)
-
+    offline_database.delete_row(
+        table_name="feature_store",
+        column_name="feature_store_id",
+        target_value=feature_store_id,
+    )
     return True
 
 
 @app.get("/feature_store/{feature_store_id}/feature")
 def list_feature(feature_store_id: str):
     return offline_database.read(
-        table="feature",
-        columns=["feature_id", "feature_name", "description", "function_name"],
-        condiction="WHERE feature_store_id = {feature_store_id}".format(
+        table_name="feature",
+        column_names=["feature_id", "feature_name", "description", "function_name"],
+        condiction="WHERE feature_store_id = '{feature_store_id}'".format(
             feature_store_id=feature_store_id
         ),
     )
@@ -117,7 +117,7 @@ def list_feature(feature_store_id: str):
 @app.post("/online_features")
 def get_online_feature(
     online_features_inputs: OnlineFeaturesInputs,
-) -> OnlineFeaturesOutputs:
+) -> List[Any]:
     return fs.get_online_feature(
         online_database=online_database,
         feature_store_function_types=online_features_inputs.feature_store_function_types,
@@ -129,8 +129,10 @@ def get_online_feature(
 @app.post("/feature_store/{feature_store_id}/feature/string_mapping")
 async def create_string_mapping_feature(
     feature_store_id: str,
-    create_string_mapping_feature_input=CreateStringMappingFeatureInput,
+    create_string_mapping_feature_input: CreateStringMappingFeatureInput,
 ) -> bool:
+    if "default" not in create_string_mapping_feature_input.mapping_rules:
+        raise ValueError("mapping_rules most contain 'default'")
     feature_id = offline_database.write(
         table_name="feature",
         data={
@@ -148,7 +150,6 @@ async def create_string_mapping_feature(
         },
         returning_columns=["feature_id"],
     )["feature_id"][0]
-
     sm = StringMapping()
     sm.set_online_feature_function(
         online_database=online_database,
@@ -165,7 +166,7 @@ async def create_string_mapping_feature(
 
 @app.post("/feature_store/{feature_store_id}/feature/scale")
 async def create_scale_feature(
-    feature_store_id: str, create_scale_feature_input=CreateScaleFeatureInput
+    feature_store_id: str, create_scale_feature_input: CreateScaleFeatureInput
 ):
     feature_id = offline_database.write(
         table_name="feature",
@@ -187,7 +188,7 @@ async def create_scale_feature(
         math_operation=create_scale_feature_input.math_operation,
     )
     sc.set_offline_feature_function(
-        online_database=online_database,
+        offline_database=offline_database,
         function_name=create_scale_feature_input.function_name,
         math_operation=create_scale_feature_input.math_operation,
     )

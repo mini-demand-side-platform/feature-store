@@ -24,7 +24,7 @@ class FeatureStore:
         self,
         online_database: OnlineDatabase,
         feature_ids: List[str],
-        feature_store_function_types: List[FeatureStoreFunctionType],
+        feature_store_function_types: List[str],
         inputs: List[Union[str, float, int]],
     ) -> List[Any]:
         assert len(feature_ids) == len(inputs)
@@ -32,9 +32,15 @@ class FeatureStore:
         res = []
         for i in range(len(feature_ids)):
             if (
-                feature_store_function_types[i]
+                feature_store_function_type_mapping[feature_store_function_types[i]]
                 == FeatureStoreFunctionType.STRING_MAPPING
             ):
+                if not isinstance(inputs[i], str):
+                    res.append(None)
+                    log.warning(
+                        "The input can only be str for the method string_mapping"
+                    )
+                    continue
                 key = (
                     feature_ids[i]
                     + "-"
@@ -63,18 +69,16 @@ class FeatureStore:
                                 default_key=default_key
                             )
                         )
-            elif feature_store_function_types[i] == FeatureStoreFunctionType.SCALE:
-                if not isinstance(inputs[i], str):
+            elif (
+                feature_store_function_type_mapping[feature_store_function_types[i]]
+                == FeatureStoreFunctionType.SCALE
+            ):
+                if isinstance(inputs[i], str):
                     res.append(None)
-                    log.warning(
-                        "The input can not be str for the method string_mapping"
-                    )
+                    log.warning("The input can not be str for the method scale")
                     continue
-                key = (
-                    feature_ids[i]
-                    + "-"
-                    + inputs[i]
-                    + "-{postfix}".format(postfix=FeatureStoreFunctionType.SCALE.value)
+                key = feature_ids[i] + "-{postfix}".format(
+                    postfix=FeatureStoreFunctionType.SCALE.value
                 )
                 if online_database.check_exist(key):
                     res.append(eval(online_database.read(key).format(inputs[i])))
@@ -93,7 +97,7 @@ class FeatureStore:
     def delete_online_feature(
         self, online_database: OnlineDatabase, feature_id: str
     ) -> None:
-        delete_candidates = online_database.scan(feature_id)
+        delete_candidates = online_database.scan(feature_id)[0]
         for delete_candidate in delete_candidates:
             online_database.delete(delete_candidate)
 
@@ -104,8 +108,10 @@ class FeatureStore:
     ) -> None:
         function_name = offline_database.read(
             table_name="feature",
-            columns="function_name",
-            condiction="WHERE feature_id = {feature_id}".format(feature_id=feature_id),
+            column_names=["function_name"],
+            condiction="WHERE feature_id = '{feature_id}'".format(
+                feature_id=feature_id
+            ),
         )["function_name"][0]
         offline_database.delete_function(function_name=function_name)
         offline_database.delete_row(
@@ -117,14 +123,14 @@ class FeatureStore:
     ):
         offline_table_name = offline_database.read(
             table_name="feature_store",
-            columns=["offline_table_name"],
+            column_names=["offline_table_name"],
             condiction="WHERE feature_store_id = {feature_store_id}".format(
                 feature_store_id=feature_store_id
             ),
         )["offline_table_name"][0]
         feature_info = offline_database.read(
             table_name="feature",
-            columns=[
+            column_names=[
                 "feature_name",
                 "function_name",
                 "source_table_name",
