@@ -97,7 +97,7 @@ class FeatureStore:
     def delete_online_feature(
         self, online_database: OnlineDatabase, feature_id: str
     ) -> None:
-        delete_candidates = online_database.scan(feature_id)[0]
+        delete_candidates = online_database.scan(feature_id + "*")
         for delete_candidate in delete_candidates:
             online_database.delete(delete_candidate)
 
@@ -106,14 +106,16 @@ class FeatureStore:
         offline_database: OfflineDatabase,
         feature_id: str,
     ) -> None:
-        function_name = offline_database.read(
+        function_name_dict = offline_database.read(
             table_name="feature",
             column_names=["function_name"],
             condiction="WHERE feature_id = '{feature_id}'".format(
                 feature_id=feature_id
             ),
-        )["function_name"][0]
-        offline_database.delete_function(function_name=function_name)
+        )
+        if len(function_name_dict["function_name"]) != 0:
+            function_name = function_name_dict["function_name"][0]
+            offline_database.delete_function(function_name=function_name)
         offline_database.delete_row(
             table_name="feature", column_name="feature_id", target_value=feature_id
         )
@@ -124,7 +126,7 @@ class FeatureStore:
         offline_table_name = offline_database.read(
             table_name="feature_store",
             column_names=["offline_table_name"],
-            condiction="WHERE feature_store_id = {feature_store_id}".format(
+            condiction="WHERE feature_store_id = '{feature_store_id}'".format(
                 feature_store_id=feature_store_id
             ),
         )["offline_table_name"][0]
@@ -136,7 +138,7 @@ class FeatureStore:
                 "source_table_name",
                 "source_column_name",
             ],
-            condiction="where feature_store_id = {feature_store_id}".format(
+            condiction="where feature_store_id = '{feature_store_id}'".format(
                 feature_store_id=feature_store_id
             ),
         )
@@ -155,7 +157,7 @@ class FeatureStore:
         offline_database.create_table(
             table_name=offline_table_name,
             column_names=feature_info["feature_name"],
-            column_types=[DatabaseValueType.FLOAT] * len(feature_info["feature_names"]),
+            column_types=[DatabaseValueType.FLOAT] * len(feature_info["feature_name"]),
         )
         apply_function_column_names = []
         for function_name, column_name in zip(

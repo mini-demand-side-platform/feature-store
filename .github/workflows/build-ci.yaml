@@ -1,0 +1,29 @@
+name: Docker Image CI
+
+on: 
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set env
+      run: |
+        env
+        echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+    - uses: actions/checkout@v2
+    - name: docker login
+      env:
+        DOCKER_USER: ${{secrets.DOCKER_USER}}
+        DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
+      run: |
+        docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD} 
+    - name: Build the Docker image
+      run: |
+        echo ${RELEASE_VERSION}
+        docker build . --file ./docker/Dockerfile --tag raywu60kg/feature-store:${RELEASE_VERSION}
+    - name: Docker Push
+      run: docker push raywu60kg/feature-store:${RELEASE_VERSION}

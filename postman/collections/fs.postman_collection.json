@@ -1,0 +1,575 @@
+{
+	"info": {
+		"_postman_id": "8dc87050-3d7f-49c8-98cb-e17f4aac799c",
+		"name": "fs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "27112482"
+	},
+	"item": [
+		{
+			"name": "init",
+			"item": [
+				{
+					"name": "creat_feature_store",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_store_name\": \"mini-demand-side-platform\",\n    \"offline_table_name\": \"top_10_features\",\n    \"description\": \"choice top 10 feature from correlation\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "list_feature_store",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:8000/feature_store",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "route_check",
+			"item": [
+				{
+					"name": "health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:8000/health",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"health"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get_feature_store",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "list_feature",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete_feature_store",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "localhost:8000/feature_store/1845d147",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"1845d147"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete feature",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/425b6b96",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"425b6b96"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get_online_feature",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_ids\": [\n        \"ed0567d3\",\n        \"ed0567d3\",\n        \"92eaa882\",\n        \"92eaa882\",\n        \"a389ed9a\"\n    ],\n    \"feature_store_function_types\": [\n        \"string_mapping\",\n        \"string_mapping\",\n        \"string_mapping\",\n        \"string_mapping\",\n        \"scale\"\n    ],\n    \"inputs\": [\n        \"AB\",\n        \"RU\",\n        \"RU\",\n        \"AB\",\n        2\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/online_features",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"online_features"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "generate_offline_feature",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/offline_table",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"offline_table"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "create string mapping features",
+			"item": [
+				{
+					"name": "create string mapping feature layout style AB",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_AB\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_AB\",\n    \"description\": \"map layout_style AB to 1\",\n    \"mapping_rules\": {\"AB\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature layout style RU",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_RU\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_RU\",\n    \"description\": \"map layout_style RU to 1\",\n    \"mapping_rules\": {\"RU\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature layout style GY",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_GY\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_GY\",\n    \"description\": \"map layout_style GY to 1\",\n    \"mapping_rules\": {\"GY\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature layout style MR",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_MR\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_MR\",\n    \"description\": \"map layout_style MR to 1\",\n    \"mapping_rules\": {\"MR\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature layout style BK",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_BK\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_BK\",\n    \"description\": \"map layout_style BK to 1\",\n    \"mapping_rules\": {\"BK\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature layout style BX",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_BX\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_BX\",\n    \"description\": \"map layout_style BX to 1\",\n    \"mapping_rules\": {\"BX\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature layout style RZ",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_RZ\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_RZ\",\n    \"description\": \"map layout_style RZ to 1\",\n    \"mapping_rules\": {\"RZ\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature layout style TY",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_TY\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_TY\",\n    \"description\": \"map layout_style TY to 1\",\n    \"mapping_rules\": {\"TY\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature category Shirt",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"category_mapping_Shirt\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"category\",\n    \"function_name\": \"category_mapping_Shirt\",\n    \"description\": \"map category Shirt to 1\",\n    \"mapping_rules\": {\"Shirt\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create string mapping feature layout style DX",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"layout_style_mapping_DX\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"layout_style\",\n    \"function_name\": \"layout_style_mapping_DX\",\n    \"description\": \"map layout_style DX to 1\",\n    \"mapping_rules\": {\"DX\": 1, \"default\": 0}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/string_mapping",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"string_mapping"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "create scale feature",
+			"item": [
+				{
+					"name": "create scale feature add",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"feature_name\": \"scale_add_1\",\n    \"source_table_name\": \"ctr\",\n    \"source_column_name\": \"height\",\n    \"function_name\": \"scale_add_1\",\n    \"description\": \"add 1 to height\",\n    \"math_operation\": \"{} + 1\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8000/feature_store/{{feature_store_id}}/feature/scale",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"feature_store",
+								"{{feature_store_id}}",
+								"feature",
+								"scale"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "feature_store_id",
+			"value": "2787b961"
+		}
+	]
+}

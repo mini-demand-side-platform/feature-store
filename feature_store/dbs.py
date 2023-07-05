@@ -101,13 +101,6 @@ class Postgresql(OfflineDatabase):
         column_names: List[str],
         column_types: List[DatabaseValueType],
     ) -> None:
-        """_summary_
-
-        Args:
-            table_name (str): _description_
-            column_names (List[str]): _description_
-            column_types (List[DatabaseValueType]): _description_
-        """
         assert len(column_names) == len(column_types)
         conn = self._get_connection()
         cur = conn.cursor()
@@ -128,6 +121,7 @@ class Postgresql(OfflineDatabase):
                 table_name=table_name, columns=",".join(columns)
             )
         )
+        conn.commit()
         cur.close()
         conn.close()
 
@@ -137,16 +131,6 @@ class Postgresql(OfflineDatabase):
         data: Dict[str, List[Any]],
         returning_columns: Optional[List[str]] = None,
     ) -> Optional[Dict[str, List[str]]]:
-        """_summary_
-
-        Args:
-            table_name (str): _description_
-            data (Dict[str, List[Any]]): _description_
-            returning_columns (Optional[List[str]], optional): _description_. Defaults to None.
-
-        Returns:
-            Optional[Dict[str, List[str]]]: _description_
-        """
         res = None
         conn = self._get_connection()
         cur = conn.cursor()
@@ -283,11 +267,11 @@ class Postgresql(OfflineDatabase):
             if k != "default":
                 if len(mapping_function) == 0:
                     mapping_function += (
-                        "IF x={target_value} THEN \n\tresult := {return_value};\n"
+                        "IF x='{target_value}' THEN \n\tresult := {return_value};\n"
                     ).format(target_value=k, return_value=v)
                 else:
                     mapping_function += (
-                        "ELSIF x={target_value} THEN \n\tresult := {return_value};\n"
+                        "ELSIF x='{target_value}' THEN \n\tresult := {return_value};\n"
                     ).format(target_value=k, return_value=v)
         mapping_function += (
             "ELSE\n\tresult := {default_value};\nEND IF;\nRETURN result;".format(
@@ -367,14 +351,15 @@ class Postgresql(OfflineDatabase):
     ):
         conn = self._get_connection()
         cur = conn.cursor()
+
         cur.execute(
             """
             INSERT INTO {target_table_name} ({target_column_names}) 
-            SELECT {source_column_names} FROM {source_table_name}";
+            SELECT {source_column_names} FROM {source_table_name};
             """.format(
                 target_table_name=target_table_name,
-                target_column_names=target_column_names,
-                source_column_names=source_column_names,
+                target_column_names=",".join(target_column_names),
+                source_column_names=",".join(source_column_names),
                 source_table_name=source_table_name,
             )
         )
@@ -408,8 +393,10 @@ class Redis(OnlineDatabase):
 
     def scan(self, pattern: str) -> List[str]:
         keys = []
-        cursor = "0"
-        while cursor != 0:
+        cursor = 0
+        while True:
             cursor, matched_key = self.conn.scan(cursor=cursor, match=pattern)
-            keys.append(matched_key)
+            keys.extend(matched_key)
+            if cursor == 0:
+                break
         return keys

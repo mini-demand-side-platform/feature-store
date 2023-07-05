@@ -58,17 +58,16 @@ def get_feature_store(feature_store_id: str):
 @app.post("/feature_store")
 async def create_feature_store(
     create_feature_store_input: CreateFeatureStoreInput,
-) -> bool:
-    offline_database.write(
+) -> str:
+    return offline_database.write(
         table_name="feature_store",
         data={
             "feature_store_name": [create_feature_store_input.feature_store_name],
             "description": [create_feature_store_input.description],
             "offline_table_name": [create_feature_store_input.offline_table_name],
         },
-    )
-
-    return True
+        returning_columns=["feature_store_id"],
+    )["feature_store_id"][0]
 
 
 @app.delete("/feature_store/{feature_store_id}")
