@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import psycopg2
 import redis
 
-from .config import DBServerInfo
+from .data_templates import DBServerInfo
 
 
 class DatabaseValueType(Enum):

@@ -106,10 +106,36 @@ async def delete_feature_store(feature_store_id: str) -> bool:
 def list_feature(feature_store_id: str):
     return offline_database.read(
         table_name="feature",
-        column_names=["feature_id", "feature_name", "description", "function_name"],
+        column_names=[
+            "feature_id",
+            "feature_name",
+            "source_table_name",
+            "source_column_name",
+            "feature_function_type",
+        ],
         condiction="WHERE feature_store_id = '{feature_store_id}'".format(
             feature_store_id=feature_store_id
         ),
+    )
+
+
+@app.get("/feature_store/{feature_store_id}/feature/{feature_id}")
+def get_feature(feature_store_id: str, feature_id: str):
+    return offline_database.read(
+        table_name="feature",
+        column_names=[
+            "feature_id",
+            "feature_name",
+            "source_table_name",
+            "source_column_name",
+            "feature_function_type",
+            "description",
+            "function_name",
+        ],
+        condiction=(
+            "WHERE feature_store_id = '{feature_store_id}' "
+            "and feature_id = '{feature_id}'"
+        ).format(feature_store_id=feature_store_id, feature_id=feature_id),
     )
 
 

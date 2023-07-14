@@ -1,15 +1,6 @@
 import os
-from dataclasses import dataclass
 
-
-@dataclass
-class DBServerInfo:
-    host: str
-    port: str
-    database: str
-    username: str
-    password: str
-
+from .data_templates import DBServerInfo
 
 oltp_server_info = DBServerInfo(
     host=os.getenv("oltp_host", "localhost"),

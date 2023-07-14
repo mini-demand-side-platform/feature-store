@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from feature_store.config import DBServerInfo
+from feature_store.data_templates import DBServerInfo
 from feature_store.dbs import Postgresql
 
 test_server_info = DBServerInfo(
