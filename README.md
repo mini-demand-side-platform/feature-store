@@ -1,3 +1,6 @@
+![Build](https://github.com/mini-demand-side-platform/feature-store/workflows/build/badge.svg)
+![Test](https://github.com/mini-demand-side-platform/feature-store/workflows/test/badge.svg)
+
 # feature-store
 
 ## Tech Stack

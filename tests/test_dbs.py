@@ -35,5 +35,7 @@ class TestPostgresql:
         with patch("psycopg2.connect", return_value=mock_connect):
             pg = Postgresql(test_server_info)
 
-            t = pg.read(table="ctr", columns=["ad_id", "status"], condiction="LIMIT 3")
-        assert t.keys() == 2
+            t = pg.read(
+                table_name="ctr", column_names=["ad_id", "status"], condiction="LIMIT 3"
+            )
+        assert len(t.keys()) == 2

@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: build
 
 on: 
   push:
@@ -27,3 +27,7 @@ jobs:
         docker build . --file ./docker/Dockerfile --tag raywu60kg/feature-store:${RELEASE_VERSION}
     - name: Docker Push
       run: docker push raywu60kg/feature-store:${RELEASE_VERSION}
+    - name: Docker Push latest
+      run: |
+        docker tag raywu60kg/feature-store:${RELEASE_VERSION} raywu60kg/feature-store:latest
+        docker push raywu60kg/feature-store:latest
