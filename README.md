@@ -3,7 +3,7 @@
 
 # feature-store
 ![image](pictures/feature-store.jpg)
-This is the feature store service in the [mini-demand-side-platform](https://github.com/mini-demand-side-platform/mini-demand-side-platform). 
+This is the feature store service of the [mini-demand-side-platform](https://github.com/mini-demand-side-platform/mini-demand-side-platform). 
 
 A feature store does:
 
@@ -86,8 +86,8 @@ String mapping feature can help you do the encoding kind of feature engineering.
 Arguments:
 - feature_name: The name of the feature.
 - source_table_name: The source table name for the feature engineering.
-- source_column_name: The source table name for the feature engineering.
-- function_name: The postgresql function name for you to actully run the feature enginnering job.
+- source_column_name: The source column name for the feature engineering.
+- function_name: The postgresql function name for you to actully run the feature engineering job.
 - description: For you to add description for the feature.
 - mapping_rules: The mapping rules for you to specify the feature mapping from string to float. See example below.
 ```bash
@@ -105,7 +105,7 @@ curl -X 'POST' \
 }'
 ```
 
-If you have two kinds of fruit, apple and banana, in the machine learning feature engineering stage, we usually use one-hot encoding to represent the fruit.. It tranfrom from 
+If you have two kinds of fruit, apple and banana, in the machine learning feature engineering stage, we usually use one-hot encoding to represent the fruit.. It transform from 
 
 |fruit|
 |---|
@@ -154,14 +154,14 @@ curl -X 'POST' \
     "mapping_rules": {"banana": 1, "default": 0}
 }'
 ```
-#### 4. Create Scale Feature
-String mapping feature can help you do the scale kind of feature engineering. 
+#### 5. Create Scale Feature
+Scale feature can help you do the scale kind of feature engineering. 
 
 Arguments:
 - feature_name: The name of the feature.
 - source_table_name: The source table name for the feature engineering.
-- source_column_name: The source table name for the feature engineering.
-- function_name: The postgresql function name for you to actully run the feature enginnering job.
+- source_column_name: The source column name for the feature engineering.
+- function_name: The postgresql function name for you to actully run the feature engineering job.
 - description: For you to add description for the feature.
 - math_operation: The math operation for you to do addition, subtraction,multiplication or division on your featuer. See example below.
 ```bash
@@ -198,7 +198,7 @@ curl -X 'POST' \
 
 The `{}` in the math_operation is the placeholder for the input.
 
-#### 5. List Features
+#### 6. List Features
 List all the feature in the feature store by feature store id.
 ```bash
 curl -X 'GET' \
@@ -235,19 +235,19 @@ Expected output:
     ]
 }
 ```
-#### 5. Delete Feature
+#### 7. Delete Feature
 Delete feature by feature_id
 ```bash
 curl -X 'DELETE' \
   'localhost:8000/feature_store/{{feature_store_id}}/feature/{{feature_id}}' 
 ```
-#### 5. Generate Offline Features 
+#### 8. Generate Offline Features 
 After create all the features, this API will generate all the feature to the offline table. 
 ```bash
 curl -X 'POST' \
   'localhost:8000/feature_store/{{feature_store_id}}/offline_table' 
 ```
-#### 6. Get Online features
+#### 9. Get Online features
 During model inference stage,
 ```bash
 curl -X 'POST' \
@@ -273,7 +273,7 @@ curl -X 'POST' \
     }'
 ```
 
-#### 7. Delete Feature Store
+#### 10. Delete Feature Store
 Delete feature store by feature store id.
 ```bash
 curl -X 'DELETE' \
@@ -284,7 +284,7 @@ curl -X 'DELETE' \
 - docker
 - docker-compose 
 ## Setup
-#### 1. Active databases 
+#### 1. Activate databases 
 ```
 git clone git@github.com:mini-demand-side-platform/databases.git
 cd databases 
