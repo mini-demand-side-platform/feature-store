@@ -56,7 +56,7 @@ def get_feature_store(feature_store_id: str):
 
 
 @app.post("/feature_store")
-async def create_feature_store(
+def create_feature_store(
     create_feature_store_input: CreateFeatureStoreInput,
 ) -> str:
     return offline_database.write(
@@ -71,7 +71,7 @@ async def create_feature_store(
 
 
 @app.delete("/feature_store/{feature_store_id}")
-async def delete_feature_store(feature_store_id: str) -> bool:
+def delete_feature_store(feature_store_id: str) -> bool:
     offline_table_name = offline_database.read(
         table_name="feature_store",
         column_names=["offline_table_name"],
@@ -152,7 +152,7 @@ def get_online_feature(
 
 
 @app.post("/feature_store/{feature_store_id}/feature/string_mapping")
-async def create_string_mapping_feature(
+def create_string_mapping_feature(
     feature_store_id: str,
     create_string_mapping_feature_input: CreateStringMappingFeatureInput,
 ) -> bool:
@@ -190,7 +190,7 @@ async def create_string_mapping_feature(
 
 
 @app.post("/feature_store/{feature_store_id}/feature/scale")
-async def create_scale_feature(
+def create_scale_feature(
     feature_store_id: str, create_scale_feature_input: CreateScaleFeatureInput
 ):
     feature_id = offline_database.write(
@@ -228,7 +228,7 @@ def delete_feature(feature_id: str) -> bool:
 
 
 @app.post("/feature_store/{feature_store_id}/offline_table")
-async def generate_offline_table(feature_store_id: str) -> bool:
+def generate_offline_table(feature_store_id: str) -> bool:
     fs.generate_offline_table(
         offline_database=offline_database, feature_store_id=feature_store_id
     )
